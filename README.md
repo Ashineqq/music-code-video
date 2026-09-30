@@ -111,6 +111,30 @@ cd app && npx tsc --noEmit                     # 一次过两支片子的类型�
 
 `tools/probe-*.mjs` 是两个可选的预览探针（它们确实会驱动浏览器；日常流程用不到）。
 
+## 导入一首歌（网易云 `.ncm` + `.lrc`）
+
+`tools/import-song.mjs` 把网易云下载的 `.ncm` 还原成 MP3，并把它的歌词文件整理成这个工程读得懂的数据。不联网、无依赖：
+
+```sh
+bun tools/import-song.mjs ~/Music/网易云音乐/"Avicii,Nicholas Furlong - The Nights.ncm"
+# 也可显式指定歌词 / 输出目录 / 恒定拍网格（默认会自动找同目录同名的 .lrc）
+bun tools/import-song.mjs <song>.ncm --lrc <song>.lrc --out songs/<slug> --bpm 126 --offset 0.12
+```
+
+产物都在 `songs/<slug>/`（`<slug>` 取自歌曲标题；**这个目录在 `.gitignore` 里**）：
+
+| 文件 | 是什么 |
+|---|---|
+| `<slug>.mp3` | 还原出的音频（下载的是 FLAC 就是 `.flac`）。`.ncm` 是容器不是编码：里面的音频就是普通 MP3，用 AES-128-ECB 保护密钥、再与一条 keybox 流异或。 |
+| `<slug>.lrc` | 整理过的歌词：网易云那种 `{"t":…,"c":[…]}` 版权行丢掉、时间戳保留，与音频同名，所以播放器能自己配对。 |
+| `lyrics.json` | 引擎读的那份（`data/<film>/lyrics.approx.json` 的形状）：行时间来自 LRC，词时间在行内按时长均分、`conf: 0`。 |
+| `audio.approx.json` | 只在给了 `--bpm` 时写：恒定速度的拍网格（`silent-mv` 那一档，没有 onset 与包络）。 |
+| `cover.jpg`/`cover.png`、`meta.json` | 容器里带的封面，以及元数据（曲名/艺人/专辑/时长/码率/歌词文件里的版权行）。 |
+
+**这份数据的上限是行级同步**：LRC 只有行时间，所以 `lyrics.json` 里每个词的起止是按词长均分的，`conf: 0`。要精确到词，得走 `analysis/align.py` 那条工具链（需要分轨与模型），把它的输出放到 `data/<film>/lyrics.json`——引擎优先读精确档，缺失才回退到 `*.approx.json`。
+
+歌与歌词不是我们的，不在本仓库的 MIT 授权范围内：`songs/` 不入库，也别把带音轨的成片推到公开仓库。
+
 ## 重新生成时间数据
 
 入库的 `data/<film>/*.json` 就是渲染器需要的全部。重新生成它们需要分轨与中间产物，仓库里没有：

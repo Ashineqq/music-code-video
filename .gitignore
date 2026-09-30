@@ -12,3 +12,7 @@ analysis/__pycache__/
 analysis/stems/
 analysis/work/
 analysis/qa/
+
+# songs imported with tools/import-song.mjs: the music and its lyrics are not ours and are not
+# covered by this repo's MIT license, so they never get committed
+songs/
