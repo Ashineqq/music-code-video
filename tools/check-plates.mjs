@@ -89,6 +89,8 @@ const after = CEL
       const d = audio.downbeats;
       return d.reduce((b, x) => (Math.abs(x - e) < Math.abs(b - e) ? x : b), d[0] ?? e);
     };
+/** The downbeat nearest t — same as the timeline's helper of the same name. */
+const nearDown = (t) => audio.downbeats.reduce((b, d) => (Math.abs(d - t) < Math.abs(b - t) ? d : b), audio.downbeats[0] ?? t);
 const sectionStart = (name, fallback) => {
   const s = audio.sections.find((x) => x.name === name);
   return s ? s.start : fallback;
@@ -99,10 +101,9 @@ const sectionStart = (name, fallback) => {
 const bBlock = /const b = \{([\s\S]*?)\n  \};/.exec(timelineSrc);
 if (!bBlock) err('timeline.ts: cannot find the `const b = { … }` boundary table');
 const B = {};
-const evalBoundary = (key, expr) => {
-  // a query may be quoted either way (double quotes when it contains an apostrophe, e.g. "I'm upping")
-  const Q = `(?:(?:'([^']*)')|(?:"([^"]*)"))`;
-  const one = (e) => {
+// a query may be quoted either way (double quotes when it contains an apostrophe, e.g. "I'm upping")
+const Q = `(?:(?:'([^']*)')|(?:"([^"]*)"))`;
+const oneBoundary = (e) => {
     e = e.trim();
     let m;
     if (/^\d+(?:\.\d+)?$/.test(e)) return +e;
@@ -113,13 +114,21 @@ const evalBoundary = (key, expr) => {
     // the outro boundary: the analysis's section start, with the film's own guess as a fallback
     // (anchored: the same shape may sit inside a Math.max, which is checked below)
     if ((m = /^au\.sections\.find\(.*name === '([^']+)'.*\)\?\.start \?\? (.+)$/.exec(e)))
-      return sectionStart(m[1], one(m[2]));
+      return sectionStart(m[1], oneBoundary(m[2]));
     if (/^au\.duration$/.test(e)) return audio.duration;
-    if ((m = /^Math\.max\((.+)\)$/.exec(e))) return Math.max(...splitArgs(m[1]).map(one));
-    throw new Error(`cannot evaluate ${key}: ${e}`);
-  };
-  try { B[key] = one(expr); } catch (e) { err(`timeline.ts: ${e.message}`); }
+    if ((m = /^Math\.max\((.+)\)$/.exec(e))) return Math.max(...splitArgs(m[1]).map(oneBoundary));
+    // boundaries taken from the music where nothing is sung: the downbeat nearest t, and the midpoint
+    // of two boundaries snapped to one (how a wordless stretch gets split in two)
+    if ((m = /^nearDown\((.+)\)$/.exec(e))) return nearDown(oneBoundary(m[1]));
+    if ((m = /^mid\((.+)\)$/.exec(e))) { const v = splitArgs(m[1]).map(oneBoundary); return nearDown((v[0] + v[1]) / 2); }
+    if ((m = /^(?:b\.)?([A-Za-z0-9_]+)$/.exec(e)) && Number.isFinite(B[m[1]])) return B[m[1]];
+    throw new Error(`cannot evaluate: ${e}`);
 };
+const evalBoundary = (key, expr) => {
+  try { B[key] = oneBoundary(expr); } catch (e) { err(`timeline.ts: ${e.message}`); }
+};
+/** Evaluate an entry's start/end expression (they may be a boundary name or a call like mid(...)). */
+const evalExpr = (x) => { try { return oneBoundary(x.trim()); } catch { err(`timeline.ts: cannot evaluate entry bound '${x}'`); return NaN; } };
 /** Split a call's argument list on top-level commas. */
 const splitArgs = (s) => {
   const out = [];
@@ -138,6 +147,11 @@ for (const line of (bBlock?.[1] ?? '').split('\n')) {
   if (!m) continue;
   evalBoundary(m[1], m[2]);
 }
+// derived boundaries: `const drop1 = mid(b.nights1, b.thunder);` — evaluated after the table so they
+// can refer to it (and to each other)
+for (const m of timelineSrc.matchAll(/^\s*const\s+([A-Za-z0-9_]+)\s*=\s*(mid|nearDown)\((.+?)\);\s*$/gm)) {
+  evalBoundary(m[1], `${m[2]}(${m[3]})`);
+}
 
 // `E('id', 'file', start, end, { … })?` entries
 const entries = [];
@@ -145,7 +159,7 @@ const entryRe = /\bE\(\s*'([^']+)',\s*'([^']+)',\s*([A-Za-z0-9_.]+|\d+(?:\.\d+)?
 let em;
 while ((em = entryRe.exec(timelineSrc))) {
   const [, id, file, sExpr, eExpr] = em;
-  const val = (x) => (/^\d/.test(x) ? +x : B[x.replace(/^b\./, '')]);
+  const val = (x) => (/^\d/.test(x) ? +x : (x in B ? B[x] : B[x.replace(/^b\./, '')] ?? evalExpr(x)));
   const start = val(sExpr), end = val(eExpr);
   const params = new RegExp(`E\\('${id}',[^)]*params:\\s*\\{([^}]*)\\}`).exec(timelineSrc)?.[1];
   entries.push({ id, file, start, end, params: params?.trim() ?? '' });
@@ -237,7 +251,7 @@ for (const e of entries) {
 }
 
 // ------------------------------------------------------------------ assets the films read at runtime
-const need = ['audio/pdoom.mp3', `data/${FILM}/lyrics.json`, `data/${FILM}/audio.json`];
+const need = [`audio/${FILM}.mp3`, `data/${FILM}/lyrics.json`, `data/${FILM}/audio.json`];
 for (const p of need) if (!existsSync(path.join(ROOT, p))) err(`missing asset: ${p}`);
 
 // ------------------------------------------------------------------ fonts: one folder per owner

@@ -16,3 +16,6 @@ analysis/qa/
 # songs imported with tools/import-song.mjs: the music and its lyrics are not ours and are not
 # covered by this repo's MIT license, so they never get committed
 songs/
+# the imported song: Avicii - The Nights is not ours and not licensed for redistribution here
+audio/the-nights.mp3
+data/the-nights/lyrics.json

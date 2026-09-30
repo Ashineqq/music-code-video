@@ -5,9 +5,10 @@ import { Engine, type AdaptiveSampling } from './engine/engine';
 import { PW, PH, SCALE } from './engine/gl';
 import { makeTimeline as pdoom } from './films/pdoom/timeline';
 import { makeTimeline as handdrawn } from './films/handdrawn/timeline';
+import { makeTimeline as thenights } from './films/the-nights/timeline';
 
 /** The films in this repo, by name. Pick one with ?film=<name> (or VITE_FILM at dev-server start). */
-const FILMS = { pdoom, handdrawn };
+const FILMS = { pdoom, handdrawn, 'the-nights': thenights };
 
 const params = new URLSearchParams(location.search);
 const FILM: string = params.get('film') ?? import.meta.env.VITE_FILM ?? 'pdoom';
@@ -105,7 +106,7 @@ function setupExport() {
 
 // ------------------------------------------------------------------ preview player
 function setupPlayer() {
-  const audio = new Audio('audio/pdoom.mp3');
+  const audio = new Audio(`audio/${FILM}.mp3`); // one song per film: audio/<film>.mp3
   audio.preload = 'auto';
   const ui = document.getElementById('ui')!;
   const scrub = document.getElementById('scrub') as HTMLInputElement;
