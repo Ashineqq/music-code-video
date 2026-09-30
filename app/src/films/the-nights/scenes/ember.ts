@@ -25,7 +25,7 @@ import { InkedScene, Sheet, rgba, v2, W, H, clamp, lerp, ease, prog, noise1, has
 import type { V2 } from './_ink';
 import type { Frame, PostOverrides } from '../../../engine/scene';
 
-/** The page's furniture — the reference plate's own numbers, so every plate is the same page. */
+/** The page's furniture (the film's canonical band: the frame just outside the safe area, three rules). */
 const FRAME: [number, number, number, number] = [72, 62, 1848, 1018];
 const RULES = [720, 818, 916]; // the three writing rules (canonical: 720/818/916, so a descender stays inside y ≤ 940)
 

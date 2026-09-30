@@ -78,6 +78,28 @@ by `tools/import-song.mjs` (line-level times, word times spread inside each line
 band autocorrelation, bar phase from the lyric lines). Word-level precision would need the alignment
 toolchain in `analysis/`, which is a property of the other film's pipeline.
 
+## What the acceptance pass showed
+
+One contact sheet (18 frames: one per plate plus the closing frame) was rendered from the final plates and
+read; `perf` measured five seconds of the busiest stretch. Verdict: the vocabulary holds across all
+seventeen plates — the page furniture, the rules, the word-by-word writing, the flat cel masses and the
+night flood all read as one film, from nine authors.
+
+Measured: **avg 17.9 ms/frame, p50 17.4, p95 30.4, max 40.1** at 1080p (target was under 25 ms on
+average; the export is unaffected by the tail, the live preview may dip under 60 fps on the heaviest
+plates).
+
+Known soft spots, left as they are deliberately (each is a one-knob change, none is a defect):
+
+- `ember` (123.4–135.3 s) is the film's quietest stretch: a dark page and one ember. That is the design
+  (the fire burns down and hands the page back), but twelve seconds of near-black is a long time for it.
+- `thunder`'s clouds are `night2` on `night` — legible, but the softest contrast in the film.
+- `nights1`'s tear (the drop at ~47.2 s) is subtle at a still; it is a moving edge.
+- In `outro` the dusk hill is a large flat mass and the two figures are small: at 1080p the handover is
+  quiet, which suits the moment but does not read from across a room.
+- The sung lines are lettered at 52–56 px; consistent everywhere, deliberately modest — the page is the
+  film's voice, not a subtitle bar.
+
 ## Known trade-off
 
 `scenes/_ink.ts` exists in two copies (this film and `handdrawn`) because the palette is baked into the

@@ -130,7 +130,8 @@ export default class Shores extends InkedScene {
   private compass(s: Sheet, f: Frame) {
     const rise = clamp(prog(f.t, this.ctx.start + 0.9, this.ctx.start + 1.9));
     if (rise <= 0) return;
-    const x = 218, y = 176, r = 40;
+    // it sits fully on the land: the coast at x ≈ 214 is y ≈ 175, so the rose must stay above it
+    const x = 214, y = 134, r = 30;
     const arm = (ang: number, len: number) => [v2(x - Math.cos(ang) * len, y - Math.sin(ang) * len), v2(x + Math.cos(ang) * len, y + Math.sin(ang) * len)];
     for (let i = 0; i < 4; i++) {
       const ang = (i / 4) * Math.PI;
@@ -138,7 +139,7 @@ export default class Shores extends InkedScene {
     }
     s.fill([v2(x, y - 8), v2(x + 8, y), v2(x, y + 8), v2(x - 8, y)], 55, rgba('star', 0.8 * rise), { amp: 1 });
     // the one machine label in the plate: which way the chart faces
-    s.text('N 63°', x + 52, y + 6, { size: 20, fam: 'Plex-400', color: rgba('star', 0.55 * rise), align: 'left' });
+    s.text('N 63°', x + 44, y + 6, { size: 20, fam: 'Plex-400', color: rgba('star', 0.55 * rise), align: 'left' });
   }
 
   /** Movement 3 — the boat, drawn in its four parts as "go venture far" is sung. */

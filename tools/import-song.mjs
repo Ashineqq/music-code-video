@@ -157,6 +157,7 @@ const stamp = (t) => {
 function toLyricsJson(lines, duration) {
   const at = (i) => lines[i]?.t ?? duration;
   return {
+    song: slug,
     duration: +duration.toFixed(3),
     source: 'lrc (line-level; word times are spread evenly inside each line)',
     lines: lines.map((l, i) => {

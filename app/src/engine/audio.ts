@@ -1,6 +1,8 @@
 // Music analysis (data/<film>/audio.json) sampled at arbitrary song time.
 
 export interface AudioJSON {
+  /** Which song this analysis is of: the audio file is `audio/<song>.mp3`. Films may share a song. */
+  song?: string;
   duration: number;
   bpm: number;
   fps: number;
@@ -21,6 +23,8 @@ export interface AudioSample {
 const FEATURES = ['rms', 'low', 'mid', 'high', 'vocal', 'drums', 'bass', 'other'] as const;
 
 export class AudioData {
+  /** The song file this analysis belongs to (`audio/<song>.mp3`); two films can share one song. */
+  song?: string;
   duration: number;
   bpm: number;
   beats: number[];
@@ -31,6 +35,7 @@ export class AudioData {
   onsets: Record<string, [number, number][]>;
 
   constructor(j: AudioJSON) {
+    this.song = j.song;
     this.duration = j.duration;
     this.bpm = j.bpm;
     this.beats = j.beats;

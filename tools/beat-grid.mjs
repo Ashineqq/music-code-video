@@ -172,6 +172,8 @@ const sections = cuts.slice(0, -1).map((t, i) => ({
 }));
 
 const out = {
+  // which song file this grid belongs to (`audio/<song>.mp3`) — set from the file it was built from
+  song: path.basename(src).replace(/\.[^.]+$/, ''),
   duration: +duration.toFixed(3),
   bpm: +bpm.toFixed(3),
   fps: FPS,

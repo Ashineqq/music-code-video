@@ -251,7 +251,7 @@ for (const e of entries) {
 }
 
 // ------------------------------------------------------------------ assets the films read at runtime
-const need = [`audio/${FILM}.mp3`, `data/${FILM}/lyrics.json`, `data/${FILM}/audio.json`];
+const need = [`audio/${audio.song ?? FILM}.mp3`, `data/${FILM}/lyrics.json`, `data/${FILM}/audio.json`];
 for (const p of need) if (!existsSync(path.join(ROOT, p))) err(`missing asset: ${p}`);
 
 // ------------------------------------------------------------------ fonts: one folder per owner

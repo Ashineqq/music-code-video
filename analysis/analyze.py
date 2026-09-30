@@ -292,6 +292,7 @@ def main(plots=False):
         s.pop("bars")
 
     doc = dict(
+        song="pdoom",  # the audio file this analysis is of (audio/pdoom.mp3)
         duration=round(duration, 3),
         bpm=round(bpm, 3),
         beat_period=round(P, 5),

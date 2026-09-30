@@ -59,6 +59,8 @@ export default class Nights extends InkedScene {
   /** Which stage of the story this entry is: 1 = the empty frame, 2 = the frame full. */
   private readonly n = Number(this.ctx.params?.n ?? 1);
   private readonly A = this.ctx.audio;
+  /** Line metrics, shaped once (they cannot change: see `measure`). */
+  private readonly metrics = new Map<Line, { size: number; gap: number; widths: number[] }>();
   /**
    * The lines this module serves, by occurrence (the same sentence is sung twice — the film's second
    * telling is the point of the pair, so the index is deliberate): three in `nights1`, two in `nights2`.
@@ -104,28 +106,29 @@ export default class Nights extends InkedScene {
       0,
     );
 
-    // 1. the page comes up out of the night the chorus left (the page turn the film cuts on)
-    const veil = 0.94 * (1 - prog(t, f.start, f.start + 0.85, ease.outQuad));
-    if (veil > 0.012) s.fill(this.wholePage(), 5, rgba('night'), { amp: 2.0, a: veil });
-
-    // 2. the page: the book's edge, the fold (the film's thread), the three rules
+    // 1. the page: the book's edge, the fold (the film's thread), the three rules
     this.page(s, false);
 
-    // 3. three memories, one per line — the third drawn EMPTY
+    // 2. three memories, one per line — the third drawn EMPTY
     const m1 = beatAfter(L1.start + 0.02), m2 = beatAfter(L2.start + 0.02), m3 = beatAfter(L3.start + 0.02);
     this.snapshot(s, 0, t, m1, m1 + 0.5, h > FOLD - MNT_Y[0]! + 40);
     this.snapshot(s, 1, t, m2, m2 + 0.5, h > FOLD - MNT_Y[1]! + 40);
     this.snapshot(s, 2, t, m3, m3 + 0.5, h > FOLD - MNT_Y[2]! + 40);
 
-    // 4. the night through the slit: the cut, then the flood (both solid, both flat)
-    if (h < 14) this.slit(s, d, ripP, h);
-    if (h > 0.5) this.flood(s, d, h);
-    this.tear(s, d, ripP, h);
-
-    // 5. the sung lines. The pen is the film's one light; the night turns what it has passed to starlight.
+    // 3. the sung lines. The pen is the film's one light; the night turns what it has passed to starlight.
     this.writeLine(s, f, L1, RULES[0]!, night, false);
     this.writeLine(s, f, L2, RULES[1]!, night, false);
     this.writeLine(s, f, L3, RULES[2]!, night, false);
+
+    // 4. the page comes up out of the night the chorus left it in (the page turn the film cuts on):
+    //    one solid flat mass over everything, lifted in the first second — so the cut is not a jump
+    const veil = 0.94 * (1 - prog(t, f.start, f.start + 0.85, ease.outQuad));
+    if (veil > 0.012) s.fill(this.wholePage(), 5, rgba('night'), { amp: 2.0, a: veil });
+
+    // 5. the night through the slit: the cut, then the flood (both solid, both flat)
+    if (h < 14) this.slit(s, d, ripP, h);
+    if (h > 0.5) this.flood(s, d, h);
+    this.tear(s, d, ripP, h);
   }
 
   // ---------------------------------------------------------------- entry 2: the album page, complete (116.24 → 123.39)
@@ -376,15 +379,14 @@ export default class Nights extends InkedScene {
   private writeLine(s: Sheet, f: Frame, l: Line, y: number, night: (y: number) => boolean, rose: boolean) {
     const t = f.t;
     if (t < l.start - 2.4) return;
-    const size = 48 * Math.min(1, MAX_W / Math.max(1, s.measureLetter(l.text, FONT, 48)));
-    const gap = size * 0.30;
+    const { size, gap, widths } = this.measure(s, l);
     const words = l.words;
-    const widths = words.map((w) => s.measureLetter(w.w, FONT, size));
     const total = widths.reduce((a, w) => a + w, 0) + gap * (words.length - 1);
     let x = (W - total) / 2;
-    // the pencil layout of the whole line, only while this line is the one being written
-    if (t < l.end + 0.6) {
-      const rise = clamp(prog(t, l.start - 1.8, l.start - 0.5));
+    // the pencil layout of the whole line, while the line is still waiting to be written
+    if (t < l.end) {
+      const g0 = Math.max(f.start, l.start - 1.8);
+      const rise = clamp(prog(t, g0, g0 + 0.9));
       s.letter(l.text, W / 2, y, size, 60, { font: FONT, align: 'center', color: rgba('graphite', 0.20 * rise), w: 2.4, amp: 1.6 });
     }
     const live = rose ? rgba('rose', 0.98) : rgba('lantern', 0.96);
@@ -405,6 +407,21 @@ export default class Nights extends InkedScene {
   }
 
   // ------------------------------------------------------------------ the hand
+  /**
+   * The measured shape of a line: the same every frame (the string never changes), so it is shaped once
+   * and remembered — the cost rule's "cache per element, not per frame". Pure: it cannot alter a frame.
+   */
+  private measure(s: Sheet, l: Line) {
+    const hit = this.metrics.get(l);
+    if (hit) return hit;
+    const size = 48 * Math.min(1, MAX_W / Math.max(1, s.measureLetter(l.text, FONT, 48)));
+    const gap = size * 0.30;
+    const widths = l.words.map((w) => s.measureLetter(w.w, FONT, size));
+    const m = { size, gap, widths };
+    this.metrics.set(l, m);
+    return m;
+  }
+
   /** Draw a line as if an unseen hand were making it: only the first p of its length is on the page yet. */
   private hand(s: Sheet, pts: V2[], seed: number, p: number, col: string, w = 2.8, closed = false) {
     if (p <= 0.004 || pts.length < 2) return;

@@ -106,7 +106,8 @@ function setupExport() {
 
 // ------------------------------------------------------------------ preview player
 function setupPlayer() {
-  const audio = new Audio(`audio/${FILM}.mp3`); // one song per film: audio/<film>.mp3
+  // the song is a property of the film's data (two films here share one song), not of the film id
+  const audio = new Audio(`audio/${engine.audio.song ?? FILM}.mp3`);
   audio.preload = 'auto';
   const ui = document.getElementById('ui')!;
   const scrub = document.getElementById('scrub') as HTMLInputElement;
