@@ -1,7 +1,8 @@
 # I'm Upping My P(doom) — treatment & style bible
 
 > **Which edition this describes.** This is the source treatment, written for the first
-> (code-rendered, glow-and-typeset) edition of the film. `handdrawn-mv/` tells the same
+> (code-rendered, glow-and-typeset) edition of the film. The hand-drawn edition
+> (`app/src/films/handdrawn/`) tells the same
 > treatment again as a hand-drawn cel animation: same 22 plates, same lyrics and beat grid,
 > same jokes — but flat ink on paper, no glow, and lettering drawn by hand instead of
 > typeset. For that edition's palette, type and drawing rules read

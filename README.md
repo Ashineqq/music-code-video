@@ -1,88 +1,56 @@
-# I'm Upping My P(doom) — one song, two films
+# I'm Upping My P(doom) — 一首歌，两支片子
 
-Two generative, code-rendered music videos of the same song, told from **one engine**. Every frame is a
-deterministic function of song time, so the live preview in the browser and the offline 1080p60 (or
-4K60) export are identical, and a frame is reproducible from its timestamp alone.
+同一首歌的两支生成式代码渲染 MV，由**一套引擎**渲染。每一帧都是歌时间的确定性函数：浏览器里的实时预览与离线的 1080p60（或 4K60）导出完全一致，任何一帧都能凭时间戳复现。
 
-| film | look | plates | runtime |
+| 片子 | 画面 | 版式 | 时长 |
 |---|---|---|---|
-| **`pdoom`** — the code-rendered original | plates of an illustrated treatise: engraving, raymarched 3D, blooming signal orange, one palette | 22 | 156.65 s |
-| **`handdrawn`** — the hand-drawn edition | ink and flat cel paint on aged paper, every outline re-drawn 12 times a second, no glow anywhere | 22 | 156.65 s |
+| **`pdoom`** — 代码渲染原片 | 一册图解末日论的版画集：雕刻感、raymarch 3D、会发光的信号橙、只用一套调色板 | 22 | 156.65 s |
+| **`handdrawn`** — 手绘重拍版 | 旧纸上的墨线与平涂 cel：每秒钟把每根轮廓重画 12 遍，全片没有一处发光 | 22 | 156.65 s |
 
-The two editions share the engine, the song, the word-level timing data, the fonts and the offline
-renderer. Each owns its own edit (which plate plays when) and its own plates. They were two repos until
-they were merged into this one: `pdoom` was the original, `handdrawn` is the re-shoot of it, and the
-merge is what makes the shared engine a single source instead of two copies of it.
+两支片子共享引擎、歌曲、逐词时间数据、字体与离线渲染器；各自拥有自己的剪辑表（哪一段在什么时候放）和自己的版式。它们原本是两个仓库，现在合并成一个：`pdoom` 是原片，`handdrawn` 是它的重拍——合并之后共享的引擎只有一份，而不是两份拷贝。
 
-**Watch the original film in 4K on YouTube:** https://www.youtube.com/watch?v=5EoO5413dBY
+**原片 4K 观看（YouTube）：** https://www.youtube.com/watch?v=5EoO5413dBY
 
-The YouTube upload is an earlier render: it averages only 4 sub-frames per frame for motion blur, so fast
-motion shows stepped copies, and YouTube's compression smears the film grain. For the best version, render
-it locally (see [Render a film](#render-a-film)): the current code picks up to 324 sub-frames per frame
-where the motion needs them.
+YouTube 上那版是较早的渲染：每帧只平均 4 个子帧，因此快速运动能看到阶梯状的重影，而且 YouTube 的压缩把颗粒抹糊了。想要最好的版本就在本地渲染（见 [渲染成片](#渲染成片)）：现在的代码在需要的地方每帧最多取 324 个子帧。
 
-The films were made with Claude in Claude Code: the concept and treatment, the lyric alignment and audio
-analysis, the renderer, every plate and the renders were all worked out in conversation with Claude.
+片子是用 Claude 在 Claude Code 里做的：概念与导演稿、歌词对齐与音频分析、渲染器、每一段版式、以及最终渲染，都是在与 Claude 的对话中做出来的。
 
-The song is not ours: see [Credits](#credits) for who wrote and made it.
+歌不是我们的：词曲作者见 [Credits](#credits)。
 
-## Layout
+## 目录
 
-Shared by both films:
+两支片子共享：
 
-- `audio/pdoom.mp3` — the song (the Claude-Pop version, see Credits).
-- `app/src/engine/` — the renderer core: timeline playback, deterministic sub-frame motion blur with
-  adaptive sampling, the post chain (bloom, halation, grain), typography (Archivo, IBM Plex Mono,
-  Cormorant Garamond, single-stroke plotter fonts), GPU line batches, HUD. Both films render through it
-  unchanged; a film only asks for different post parameters.
-- `app/src/main.ts` — the app entry. It picks the film and hosts the preview player and the export API.
-- `app/scripts/render.ts` — the offline renderer (headless Chrome → raw frames over WebSocket → ffmpeg).
-- `app/public/fonts/` — the type, split by owner: `common/` is what every film loads (the IBM Plex
-  Mono voice, which the engine's own HUD readout needs, and the single-stroke EMS/Hershey lettering
-  library), `pdoom/` is the code-rendered film's own (32 Archivo/Cormorant instances, the OpenType
-  sources `analysis/make_fonts.py` cuts them from, and the Archivo license). The first path segment is
-  the owner, so a film never fetches another film's type: the hand-drawn film takes none of the ~5 MB of
-  display faces it never draws with.
-- `app/public/plates/` — 14 stills of the original film. Its outro's rewind montage loads them by number
-  (`plates/figNN.jpg`); the hand-drawn film draws its own flip-book and reads none of them.
-- `docs/ENGINE.md` — the engine and scene API, for authors of either film's plates.
-  `tools/check-plates.mjs` — the static gate (`--film pdoom` for the original's edit table).
+- `audio/pdoom.mp3` — 歌曲（Claude-Pop 版本，见 Credits）。
+- `app/src/engine/` — 渲染器核心：时间表播放、带自适应采样的确定性子帧运动模糊、后处理链（bloom / halation / grain）、排版（Archivo、IBM Plex Mono、Cormorant Garamond、单线绘图仪字体）、GPU 线批、HUD。两支片子都原样走这条链，片子只是要求不同的后处理参数。
+- `app/src/main.ts` — 应用入口：选片子，并承载预览播放器与导出接口。
+- `app/scripts/render.ts` — 离线渲染器（无头 Chrome → WebSocket 传原始帧 → ffmpeg）。
+- `app/public/fonts/` — 字体，按归属分开：`common/` 是每支片子都加载的（IBM Plex Mono——引擎自己的 HUD 读数也要用它——以及单线 EMS/Hershey 笔迹字体库）；`pdoom/` 是原片专属的（32 个 Archivo/Cormorant 实例，加上 `analysis/make_fonts.py` 切这些实例用的可变字体源，和 Archivo 的授权文本）。**归属就是第一层目录名**，所以一支片子不会去取另一支的字体：手绘版因此完全不下载它一个笔画都不画的约 5 MB 展示字体。
+- `app/public/plates/` — 原片的 14 张静帧。原片 outro 的倒卷蒙太奇按编号读它们（`plates/figNN.jpg`）；手绘版自己画翻页动画，一张都不读。
+- `docs/ENGINE.md` — 引擎与场景 API（写给两支片子的版式作者看）。
+- `tools/check-plates.mjs` — 静态门（`--film pdoom` 检查原片的剪辑表）。
 
-Per film (its own edit, its own plates, its own data, its own written rules):
+每支片子各有（自己的剪辑表、自己的版式、自己的数据、自己的画风文档）：
 
-- `app/src/films/<film>/timeline.ts` — **the edit**: 22 windows anchored to lyric lines and snapped to
-  the beat grid, so changing a lyric moves the whole cut.
-- `app/src/films/<film>/scenes/` — one module per plate, plus that film's shared helpers.
-  - `pdoom/scenes/` — the original's plates with their per-plate helpers (`open-geo.ts`,
-    `shoggoth-glsl.ts`, `_motifs.ts`, …). `app/src/films/pdoom/plates.json` holds the hand-picked times
-    `render.ts plates` uses when it regenerates the stills above.
-  - `handdrawn/scenes/` — the cel plates, and `_ink.ts`: the hand-drawn layer (the paper shader, the cel
-    palette and `Sheet` — wobbled strokes, flat fills, hatching, hand-lettering).
-- `data/<film>/` — the song data that film cuts on: `lyrics.json` (word-level timings) and `audio.json`
-  (tempo 132.007 BPM, beats, downbeats, sections, onsets, loudness envelopes), plus `*.approx.json`, the
-  approximate pair the engine falls back to when the precise file is missing. The two films' folders are
-  byte-identical today — they are free to diverge, and the gate says so when they do.
-  `data/handdrawn/TREATMENT.src.md` is the hand-drawn edition's plate-by-plate creative brief.
-- `docs/pdoom/TREATMENT.md` — the original's concept, style bible and plate-by-plate treatment.
-  `docs/handdrawn/HAND-DRAWN.md` — the hand-drawn edition's rules (exposure on twos, the boil, the
-  palette, the lettering).
-- `tools/make-stubs.mjs` — the hand-drawn edition's authoring bootstrap: writes placeholder plates for
-  every entry of its edit (it refuses to overwrite a real plate).
+- `app/src/films/<film>/timeline.ts` — **剪辑表**：22 个窗口，边界锚在歌词上并吸附到拍网格，所以改一句词整条剪辑会跟着走。
+- `app/src/films/<film>/scenes/` — 一版式一模块，外加该片子的共享构件。
+  - `pdoom/scenes/` — 原片的版式与其各自的辅助模块（`open-geo.ts`、`shoggoth-glsl.ts`、`_motifs.ts` …）。`app/src/films/pdoom/plates.json` 存着 `render.ts plates` 重新生成上面那批静帧时用的手选时刻。
+  - `handdrawn/scenes/` — cel 版式，以及 `_ink.ts`：手绘层（纸的着色器、cel 调色板，和 `Sheet`——抖动的笔线、平涂、排线、手写字）。
+- `data/<film>/` — 该片子据以剪辑的歌曲数据：`lyrics.json`（逐词时间）与 `audio.json`（132.007 BPM、拍、强拍、段落、onset、响度包络），外加 `*.approx.json`（精确文件缺失时引擎回退用的近似档）。两支片子的这两份今天是逐字节相同的——允许以后分化，静态门会提示是否还一致。`data/handdrawn/TREATMENT.src.md` 是手绘版的逐版式创作稿。
+- `docs/pdoom/TREATMENT.md` — 原片的概念、风格圣经与逐版式 treatment；`docs/handdrawn/HAND-DRAWN.md` — 手绘版的规则（一拍两张、抖动、调色板、字体）。
+- `tools/make-stubs.mjs` — 手绘版的版式脚手架：为它剪辑表里的每个条目写占位版式（不会覆盖已写好的版式）。
 
-The original film's analysis toolchain, which produces `data/pdoom/*.json`:
+原片的分析工具链（产出 `data/pdoom/*.json`）：
 
-- `lyrics/lyrics.src.js` — the original line-level lyrics (approximate timings).
-- `analysis/` — Python (uv) tools: Demucs stem separation, CTC forced alignment cross-checked with
-  Whisper, beat/downbeat/onset analysis. See `analysis/align.py` and `analysis/analyze.py`.
-- `out/` — renders and stills (not committed).
+- `lyrics/lyrics.src.js` — 原始的行级歌词（时间粗略）。
+- `analysis/` — Python（uv）工具：Demucs 分轨、CTC 强制对齐并用 Whisper 交叉验证、节拍/强拍/onset 分析。见 `analysis/align.py` 与 `analysis/analyze.py`。
+- `out/` — 渲染与静帧（不入库）。
 
-## Requirements
+## 环境要求
 
-[bun](https://bun.sh), Google Chrome (the offline renderer drives it headless through `playwright-core`)
-and ffmpeg with libx264. The preview needs neither Chrome nor ffmpeg. The analysis tools need
-[uv](https://docs.astral.sh/uv/); the renderer doesn't.
+[bun](https://bun.sh)、Google Chrome（离线渲染器通过 `playwright-core` 驱动无头 Chrome）和带 libx264 的 ffmpeg。**预览这两样都不需要**。分析工具链需要 [uv](https://docs.astral.sh/uv/)，渲染器不需要。
 
-## Look at it
+## 看片
 
 ```sh
 cd app
@@ -90,21 +58,20 @@ bun install
 bunx vite
 ```
 
-Open http://localhost:5173 — `?film=handdrawn` for the cel edition (`pdoom` is the default, and
-`VITE_FILM=handdrawn bunx vite` makes it the default for the session). `?t=23` starts at 23 s.
+打开 http://localhost:5173 —— 手绘版加 `?film=handdrawn`（默认是 `pdoom`；也可以 `VITE_FILM=handdrawn bunx vite` 让这一次启动默认就是手绘版）。`?t=23` 表示从 23 秒开始。
 
-| Key | Action |
+| 按键 | 作用 |
 |---|---|
-| space | play / pause |
-| ← / → | seek ±1 s (±5 s with shift) |
-| `,` / `.` | step one frame |
-| `[` / `]` | previous / next plate |
-| `l` | loop the current plate |
-| `h` | hide the player UI |
+| 空格 | 播放 / 暂停 |
+| ← / → | ±1 秒（按住 shift 为 ±5 秒）|
+| `,` / `.` | 前后一帧 |
+| `[` / `]` | 上一段 / 下一段版式 |
+| `l` | 循环当前版式 |
+| `h` | 隐藏播放器 UI |
 
-The preview renders in real time (60 fps on a recent Mac). The export is not real time and is heavier.
+预览在近年的 Mac 上是实时的（60 fps）。导出不是实时的，而且重得多。
 
-## Render a film
+## 渲染成片
 
 ```sh
 cd app
@@ -112,23 +79,11 @@ bun scripts/render.ts video --film pdoom     --samples auto --shutter 0.2 --out 
 bun scripts/render.ts video --film handdrawn --samples auto --shutter 0.2 --out ../out/pdoom-handdrawn.mp4
 ```
 
-`--film` picks the edition (default `pdoom`) in every mode.
+`--film` 在每一个模式里都用来选片子（默认 `pdoom`）。
 
-- **Output:** 1920×1080 at 60 fps, x264 CRF 16, AAC audio.
-- **Motion blur:** every frame is the average of many sub-frames spread over a short shutter
-  (`--shutter 0.2`, a fifth of the frame time), so fast motion leaves a continuous streak instead of a
-  few stepped copies. `--samples auto` picks the count per frame (4, 12, 36, 108 or 324) and stops once
-  more sub-frames would no longer change the image by more than `--tol` levels of 255 (default 3);
-  `--samples N` takes a fixed N instead (`--samples 4` makes a quick draft). The hand-drawn edition wants
-  this too: its drawing clock is 12 drawings a second, so without a shutter the 60 fps output would show
-  each drawing twice as a hard step. How it works: "Motion blur and sampling" in
-  [`docs/ENGINE.md`](docs/ENGINE.md).
-- **Other modes:** `stills --t 1.5,40.2`, `sheet --from 20 --to 35` (contact sheets, `--cuts` for every
-  plate boundary), `perf --from 20 --to 25` (frame cost), `gpu` (which renderer), and `plates`. Working
-  files land in `out/<film>/`; videos land in `out/`. `plates` writes one still per plate into
-  `app/public/plates/` — for `pdoom` it regenerates the 14 stills its outro rewinds through (rerun it
-  after changing one of those plates), for `handdrawn` it writes `<n>-<id>.jpg` for glancing at the
-  whole film.
+- **输出**：1920×1080、60 fps、x264 CRF 16、AAC 音频。
+- **运动模糊**：每一帧是许多子帧在很短快门内的平均（`--shutter 0.2`，即帧长的五分之一），所以快速运动会拉出连续的拖影，而不是几个阶梯。`--samples auto` 逐帧决定子帧数（4、12、36、108 或 324），当再加子帧对画面的改变已不超过 `--tol`（默认 3 个 255 级）时停下；`--samples N` 用固定值（`--samples 4` 出草稿）。手绘版同样需要它：它的作画时钟是每秒 12 张，不加模糊的话 60 fps 输出里每张画会硬邦邦地停两帧。原理见 `docs/ENGINE.md` 的 “Motion blur and sampling”。
+- **其他模式**：`stills --t 1.5,40.2`、`sheet --from 20 --to 35`（接触表，`--cuts` 出每一个版式边界）、`perf --from 20 --to 25`（单帧耗时）、`gpu`（用的是哪个渲染器）、`plates`。工作文件落在 `out/<film>/`，成片落在 `out/`。`plates` 往 `app/public/plates/` 写“一版式一帧”：对 `pdoom` 而言是重新生成它 outro 倒卷要读的那 14 张静帧（改过对应版式后要重跑），对 `handdrawn` 则是写 `<n>-<id>.jpg`，供一眼看全片。
 
 ### 4K
 
@@ -137,50 +92,31 @@ cd app
 bun scripts/render.ts video --film pdoom --scale 2 --samples auto --shutter 0.2 --x264 aq-mode=3:rc-lookahead=30 --out ../out/pdoom-4k.mp4
 ```
 
-- **Output:** a true 3840×2160 render (not an upscale): every layer, line and shader is rendered at the
-  physical resolution. Plates are laid out in 1920×1080 logical pixels, so the 4K frame looks like the
-  1080p one, only sharper.
-- **Cost:** GPU-bound. A frame takes from about 40 ms (a still frame) to over 10 s (the ray-marched rooms
-  at 108–324 sub-frames). The whole song took about 2.5 hours on an M5 Pro, rendered as segments in two
-  parallel pipelines (`--from`/`--to`, then a lossless concat). Each pipeline uses about 5 GB for headless
-  Chrome plus about 4 GB for ffmpeg; the shorter x264 lookahead above keeps ffmpeg's memory down.
-- **Encoding:** the film grain is rendered per 4K pixel, which is expensive to encode: at the default
-  CRF 16 the file runs at about 670 Mbit/s (13 GB for the song, 8× the 1080p file), `--crf 18` gives
-  about 450 Mbit/s and `--crf 20` about 230 Mbit/s.
-- `--scale 2` works with every mode. `stills` then saves full-resolution PNGs, and `perf` measures 4K
-  frame times. In the browser preview, add `&scale=2` to the URL.
+- **输出**：真正的 3840×2160（不是放大）：每一层、每一根线、每一个着色器都按物理分辨率渲染。版式仍按 1920×1080 的逻辑像素排版，所以 4K 帧与 1080p 构图相同，只是更锐。
+- **代价**：吃 GPU。一帧从约 40 ms（静止帧）到 10 秒以上（raymarch 房间在 108–324 子帧时）。整首歌在 M5 Pro 上约 2.5 小时，做法是切成段、跑两条并行流水线（`--from`/`--to`，最后无损拼接）。每条流水线约占 5 GB（无头 Chrome）加约 4 GB（ffmpeg）；上面那个更短的 x264 lookahead 就是为了压住 ffmpeg 的内存。
+- **编码**：颗粒是按 4K 单像素渲染的，编码很贵：默认 CRF 16 下码率约 670 Mbit/s（整首歌 13 GB，是 1080p 文件的 8 倍），`--crf 18` 约 450 Mbit/s，`--crf 20` 约 230 Mbit/s。
+- `--scale 2` 对所有模式都有效：`stills` 会存全分辨率 PNG，`perf` 量的是 4K 单帧耗时。浏览器预览则在 URL 后加 `&scale=2`。
 
-## Check it
+## 静态门
 
-Two gates, no browser involved:
+两道门，都不需要浏览器：
 
 ```sh
-node tools/check-plates.mjs                    # the hand-drawn film's edit table and cel rules (0.1 s)
-node tools/check-plates.mjs --film pdoom       # the original film's edit table (cel rules don't apply)
-cd app && npx tsc --noEmit                     # the type gate over both films (~1 s)
+node tools/check-plates.mjs                    # 手绘版的剪辑表 + cel 规则（约 0.1 秒）
+node tools/check-plates.mjs --film pdoom       # 原片的剪辑表（cel 规则不适用）
+cd app && npx tsc --noEmit                     # 一次过两支片子的类型门（约 1 秒）
 ```
 
-`tools/check-plates.mjs` rebuilds the film's edit table from `data/<film>/*.json` with the same maths as its
-`timeline.ts` and checks that the 22 windows tile `0 → 156.65 s` with no gap, overlap or dangling scene
-file, and that every lyric line starting inside a plate's window is actually queried by that plate. For
-the hand-drawn film it also checks that every plate is an `InkedScene` with a `draw()`, and that no plate
-uses additive blending, the glow-era line batch, a non-deterministic clock or a colour outside the cel
-palette. It cannot tell you whether a plate *looks* right — that is what the preview and the contact
-sheet are for.
+`tools/check-plates.mjs` 用与 `timeline.ts` 相同的算术、从 `data/<film>/*.json` 重建该片子的剪辑表，检查 22 个窗口无缝无重叠地铺满 `0 → 156.65 s`、没有指向不存在的版式文件，并检查每个窗口内开始的歌词行确实被那一版式查询过。对手绘版还会检查：每个版式都是带 `draw()` 的 `InkedScene`，且没有任何版式使用叠加混合、发光时代的线批、不确定的时钟，或 cel 调色板以外的颜色。此外会检查字体目录与“归属 = 第一层目录名”的规则一致，并提示两支片子的数据是否还一致。它证明不了“好不好看”——那要靠预览和接触表。
 
-`tools/probe-*.mjs` are two optional preview probes (they do drive a browser; nothing in the normal
-workflow needs them).
+`tools/probe-*.mjs` 是两个可选的预览探针（它们确实会驱动浏览器；日常流程用不到）。
 
-## Regenerate the timing data
+## 重新生成时间数据
 
-The committed `data/<film>/*.json` files are all the renderer needs. Regenerating them needs the stems
-and intermediates, which are not in the repo:
+入库的 `data/<film>/*.json` 就是渲染器需要的全部。重新生成它们需要分轨与中间产物，仓库里没有：
 
-- **Stems:** Demucs `htdemucs_ft` into `analysis/stems/htdemucs_ft/pdoom/`
-  (`uv run python -m demucs -n htdemucs_ft -o stems ../audio/pdoom.mp3`), plus the lead vocal from a
-  mel-band-roformer karaoke model (audio-separator) in `analysis/stems/karaoke/lead.wav`.
-- **Intermediates:** `ctc_emissions.py`, `whisper_run.py` and `vocal_feats.py` write them to
-  `analysis/work/`. The pipeline is described at the top of `analysis/align.py`.
+- **分轨**：Demucs `htdemucs_ft` 输出到 `analysis/stems/htdemucs_ft/pdoom/`（`uv run python -m demucs -n htdemucs_ft -o stems ../audio/pdoom.mp3`），再用 mel-band-roformer 的 karaoke 模型（audio-separator）取主唱，放到 `analysis/stems/karaoke/lead.wav`。
+- **中间产物**：`ctc_emissions.py`、`whisper_run.py`、`vocal_feats.py` 写在 `analysis/work/`；整条流程描述在 `analysis/align.py` 开头。
 
 ```sh
 cd analysis
@@ -188,26 +124,15 @@ uv run python align.py      # data/pdoom/lyrics.json
 uv run python analyze.py    # data/pdoom/audio.json
 ```
 
-They write the original film's data set. If the hand-drawn edition should follow a new alignment, copy
-it across too (`cp data/pdoom/lyrics.json data/pdoom/audio.json data/handdrawn/`); the gate prints
-whether the two films' copies still agree.
+它们写的是原片那份数据。若手绘版也要跟着新对齐走，就一起拷过去（`cp data/pdoom/lyrics.json data/pdoom/audio.json data/handdrawn/`）；静态门会打印两支片子的数据是否还一致。
 
-The models download about 4 GB of weights into `analysis/.cache/`; delete that folder afterwards.
+模型会往 `analysis/.cache/` 下约 4 GB 权重，跑完可以删掉。
 
 ## Credits
 
-- **Song:** "I'm Upping My P(doom)". The lyrics are by [osmarks](https://docs.osmarks.net/hypha/p%28doom%29_song_objectively_correct_interpretation),
-  built on an opening verse and chorus by [MusicPerson](https://www.udio.com/creators/MusicPerson), with
-  lines suggested on the EleutherAI Discord and help from Claude on the outro and final chorus. The
-  original was generated with Udio and released in November 2024
-  ([YouTube](https://www.youtube.com/watch?v=uEB5E67vcPA)). These films use the "Claude-Pop" version made
-  with Suno, posted by [deckard (@slimer48484)](https://x.com/slimer48484/status/2097752569212756134) in
-  September 2026.
-- **Fonts:** Archivo, IBM Plex Mono and Cormorant Garamond (SIL Open Font License). Single-stroke EMS and
-  Hershey fonts via the `hersheytext` package (OFL / public domain).
+- **歌曲**："I'm Upping My P(doom)"。歌词由 [osmarks](https://docs.osmarks.net/hypha/p%28doom%29_song_objectively_correct_interpretation) 所作，基于 [MusicPerson](https://www.udio.com/creators/MusicPerson) 的开场主歌与副歌，另有一些句子来自 EleutherAI Discord 上的建议，outro 与最后一段副歌有 Claude 参与。原曲由 Udio 生成、2024 年 11 月发布（[YouTube](https://www.youtube.com/watch?v=uEB5E67vcPA)）。这两支片子用的是 Suno 生成的 "Claude-Pop" 版本，由 [deckard (@slimer48484)](https://x.com/slimer48484/status/2097752569212756134) 于 2026 年 9 月发布。
+- **字体**：Archivo、IBM Plex Mono、Cormorant Garamond（SIL Open Font License）。单线 EMS 与 Hershey 字体来自 `hersheytext` 包（OFL / 公有领域）。
 
-## License
+## 授权
 
-The code is released under the [MIT License](LICENSE). The fonts in `app/public/fonts/` keep their own
-licenses (see Credits), and the song and lyrics (`audio/`, `lyrics/`, `data/*/lyrics.json`) are not covered
-by it: they belong to their authors (see Credits).
+代码以 [MIT License](LICENSE) 发布。`app/public/fonts/` 里的字体各自保留其授权（见 Credits），歌与歌词（`audio/`、`lyrics/`、`data/*/lyrics.json`）不在 MIT 覆盖范围内：它们属于各自的作者（见 Credits）。
