@@ -86,17 +86,29 @@ export interface HudState {
 export class Hud {
   layer = new Layer2D();
   private ink = false;
+  /** True while the layer is already known to hold nothing: skip the clear + 8 MB canvas re-upload. */
+  private idle = false;
   constructor(public pdoom: PDoom, public captions: Caption[]) {}
 
   draw(t: number, st: HudState) {
     const L = this.layer;
-    L.clear();
     const c = L.ctx;
-    if (st.opacity <= 0.001) return L.upload();
+    const marks = st.opacity > 0.001 && st.frame > 0.001;
+    const readout = st.opacity > 0.001 && st.readout > 0.001;
+    // the caption window is widened by its own fade so a fade-in is not cut off
+    const caption = st.opacity > 0.001 && this.captions.some((k) => t >= k.start - 0.7 && t < k.end + 0.7);
+    if (!marks && !readout && !caption) {
+      if (this.idle) return L.texture;
+      L.clear();
+      this.idle = true;
+      return L.upload();
+    }
+    this.idle = false;
+    L.clear();
     c.globalAlpha = st.opacity;
     this.ink = st.paper > 0.5;
-    if (st.frame > 0.001) this.cropMarks(c, st.frame);
-    if (st.readout > 0.001) { c.save(); c.globalAlpha *= st.readout; this.readout(c, t, st); c.restore(); }
+    if (marks) this.cropMarks(c, st.frame);
+    if (readout) { c.save(); c.globalAlpha *= st.readout; this.readout(c, t, st); c.restore(); }
     this.caption(c, t);
     return L.upload();
   }
@@ -146,6 +158,11 @@ export class Hud {
     c.restore();
   }
 
+  /**
+   * The legacy FIG. cards (a timeline entry's `caption`). No film's edit uses them today — the
+   * original retired them in revision 2 and the cel film never had them — but a film that does
+   * needs the Cormorant faces, which are the code-rendered film's own (`fonts/pdoom/`).
+   */
   private caption(c: CanvasRenderingContext2D, t: number) {
     const cap = this.captions.find((k) => t >= k.start && t < k.end);
     if (!cap) return;

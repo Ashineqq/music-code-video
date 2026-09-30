@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
-// Offline renderer. Drives the app in headless Chrome (?export=1) and either
+// Offline renderer. Drives the app in headless Chrome (?export=1&film=<film>) and either
 //   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]
 //   sheet:   bun scripts/render.ts sheet --from 20 --to 35 [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
-//   plates:  bun scripts/render.ts plates   (renders one representative JPEG per plate into public/plates/ (used by the outro's rewind), times from plates.json or entry midpoints)
+//   plates:  bun scripts/render.ts plates   (one still per plate into public/plates/, for glancing at the whole film; times from the film's plates.json or the entry midpoints)
 //   perf:    bun scripts/render.ts perf --from 20 --to 25 [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
 //   video:   bun scripts/render.ts video [--from 0] [--to 156.65] [--fps 60] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/pdoom.mp4] [--noaudio]
 //            --samples N averages N sub-frames per frame over shutter×(1/fps): motion blur + temporal AA;
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
+//   --film <pdoom|handdrawn> (all modes): which film to render (default pdoom, the app's own default)
 //   --scale N (all modes): render at N× the 1920x1080 layout (--scale 2 = true 3840x2160); stills are then saved
 //            full-res from the pixel buffer, videos are encoded at the physical size.
 // Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
@@ -27,6 +28,17 @@ const SAMPLES = opt('samples', '1') === 'auto'
   : +opt('samples', '1')!;
 const hist = (h: Record<string, number>) => Object.entries(h).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `${k}:${v}`).join(' ');
 const ROOT = path.resolve(APP, '..');
+const FILM = opt('film', 'pdoom')!;
+const FILM_DIR = path.join(APP, 'src/films', FILM);
+/**
+ * The code-rendered film's outro rewinds through its own plate stills and loads them by number
+ * (`plates/figNN.jpg`), so `plates` writes them in this order and under those names. It is the FIG.
+ * order of docs/pdoom/TREATMENT.md, which is the order of the `PLATES` table in that film's outro.
+ */
+const FIG_ORDER = ['open', 'loss', 'room', 'shoggoth', 'spacetime', 'ascent', 'bureau', 'leftturn', 'paperclips', 'fuse', 'stack', 'dense', 'loom', 'ilya'];
+/** Working files (stills, sheets) go under the film's own folder; the films' videos sit side by side. */
+const OUT_DIR = path.join(ROOT, 'out', FILM);
+const OUT_VIDEO = path.join(ROOT, 'out', FILM === 'pdoom' ? 'pdoom.mp4' : `pdoom-${FILM}.mp4`);
 
 async function reachable(url: string) {
   try { const r = await fetch(url, { signal: AbortSignal.timeout(1500) }); return r.ok; } catch { return false; }
@@ -54,7 +66,7 @@ async function openPage(url: string) {
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
   page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
   const only = opt('only');
-  await page.goto(`${url}/?export=1${only ? `&only=${only}` : ''}${SCALE !== 1 ? `&scale=${SCALE}` : ''}`);
+  await page.goto(`${url}/?export=1&film=${FILM}${only ? `&only=${only}` : ''}${SCALE !== 1 ? `&scale=${SCALE}` : ''}`);
   await page.waitForFunction(() => (window as any).__pdoom?.ready || (window as any).__pdoom?.error, null, { timeout: 120000 });
   const err = await page.evaluate(() => (window as any).__pdoom.error);
   if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);
@@ -156,7 +168,7 @@ try {
     }));
   } else if (mode === 'stills') {
     const times = (opt('t') ?? '0').split(',').map(Number);
-    const files = await stills(page, times, opt('out', path.join(ROOT, 'out/stills'))!);
+    const files = await stills(page, times, opt('out', path.join(OUT_DIR, 'stills'))!);
     console.log(files.join('\n'));
   } else if (mode === 'sheet') {
     const from = +opt('from', '0')!, to = +opt('to', '10')!, n = +opt('n', '12')!;
@@ -167,22 +179,27 @@ try {
       const tl: { id: string; start: number }[] = await page.evaluate(() => (window as any).__pdoom.timeline);
       times = tl.slice(1).flatMap((e) => [e.start - 0.1, e.start - 1 / 60, e.start + 1 / 60, e.start + 0.1]);
     }
-    const out = opt('out', path.join(ROOT, `out/sheets/sheet_${from}-${to}.png`))!;
+    const out = opt('out', path.join(OUT_DIR, `sheets/sheet_${from}-${to}.png`))!;
     await sheet(page, times, +opt('cols', '4')!, out);
     console.log(out);
   } else if (mode === 'plates') {
     const tl: { id: string; start: number; end: number }[] = await page.evaluate(() => (window as any).__pdoom.timeline);
-    const figs = ['open', 'loss', 'room', 'shoggoth', 'spacetime', 'ascent', 'bureau', 'leftturn', 'paperclips', 'fuse', 'stack', 'dense', 'loom', 'ilya'];
-    const overrides: Record<string, number> = existsSync(path.join(APP, 'plates.json')) ? await Bun.file(path.join(APP, 'plates.json')).json() : {};
+    const overridesPath = path.join(FILM_DIR, 'plates.json');
+    const overrides: Record<string, number> = existsSync(overridesPath) ? await Bun.file(overridesPath).json() : {};
     const dir = path.join(APP, 'public/plates');
     mkdirSync(dir, { recursive: true });
     await page.evaluate(() => { (window as any).__pdoom.engine.hudOff = true; });
-    for (let i = 0; i < figs.length; i++) {
-      const e = tl.find((x) => x.id === figs[i]);
-      if (!e) continue;
-      const t = overrides[figs[i]!] ?? (e.start + e.end) / 2;
+    // The code-rendered film names its stills by FIG. number because its own outro reads them back
+    // (see FIG_ORDER); the hand-drawn film reads none of them, so it numbers them by the edit and
+    // tags each with its plate id — one still per plate, for eyeballing the whole film at a glance.
+    const order = FILM === 'pdoom' ? FIG_ORDER : tl.map((e) => e.id);
+    for (let i = 0; i < order.length; i++) {
+      const e = tl.find((x) => x.id === order[i]);
+      if (!e) { console.error(`plates: no timeline entry '${order[i]}' in film '${FILM}'`); continue; }
+      const t = overrides[e.id] ?? (e.start + e.end) / 2;
       await page.evaluate((t) => (window as any).__pdoom.still(t, 4, 0.2), t);
-      const f = path.join(dir, `fig${String(i + 1).padStart(2, '0')}.jpg`);
+      const n = String(i + 1).padStart(2, '0');
+      const f = path.join(dir, FILM === 'pdoom' ? `fig${n}.jpg` : `${n}-${e.id}.jpg`);
       await page.screenshot({ path: f, type: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: 1920, height: 1080 } });
       console.log(f, t.toFixed(2));
     }
@@ -207,7 +224,7 @@ try {
     console.log(`frames ${r.n}  avg ${r.avg.toFixed(1)}ms  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(1)}  sub-frames ${hist(r.used)}`);
   } else if (mode === 'video') {
     const dur: number = await page.evaluate(() => (window as any).__pdoom.duration);
-    await video(page, +opt('from', '0')!, +opt('to', String(dur))!, +opt('fps', '60')!, path.resolve(opt('out', path.join(ROOT, 'out/pdoom.mp4'))!));
+    await video(page, +opt('from', '0')!, +opt('to', String(dur))!, +opt('fps', '60')!, path.resolve(opt('out', OUT_VIDEO)!));
   }
   if (logs.length) console.error('BROWSER LOG:\n' + logs.slice(0, 40).join('\n'));
 } finally {

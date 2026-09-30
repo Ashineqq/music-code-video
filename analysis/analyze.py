@@ -1,4 +1,4 @@
-"""Music analysis -> data/audio.json
+"""Music analysis -> data/pdoom/audio.json
 
   * constant-tempo beat grid (tempo + phase fitted to drum / mix onsets, phase
     refined on kick attacks), downbeats (bar phase from snare-on-2&4 and the

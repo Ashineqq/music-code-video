@@ -64,6 +64,12 @@ export const DEFAULT_POST: PostParams = {
 
 const MIPS = 7;
 
+/** 1x1 opaque black, bound instead of the bloom pyramid when nothing blooms (see Post.render). */
+const BLACK_1PX = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
+BLACK_1PX.needsUpdate = true;
+BLACK_1PX.minFilter = THREE.LinearFilter;
+BLACK_1PX.magFilter = THREE.LinearFilter;
+
 export class Post {
   private prefilter: FSPass;
   private down: FSPass;
@@ -172,33 +178,38 @@ ${SCALE === 1 ? `        float g1 = hash12(gl_FragCoord.xy + fract(time * 13.37)
 
   /** Apply the chain: src (HDR linear) -> out (sRGB 8-bit target or screen). */
   render(renderer: THREE.WebGLRenderer, src: THREE.Texture, hud: THREE.Texture, out: THREE.WebGLRenderTarget | null, p: PostParams, time: number) {
-    // bloom pyramid
-    this.prefilter.u.src!.value = src;
-    (this.prefilter.u.texel!.value as THREE.Vector2).set(1 / W, 1 / H);
-    this.prefilter.u.threshold!.value = p.bloomThreshold;
-    this.prefilter.u.knee!.value = p.bloomKnee;
-    this.prefilter.render(renderer, this.mips[0]!);
-    for (let i = 1; i < MIPS; i++) {
-      const s = this.mips[i - 1]!;
-      this.down.u.src!.value = s.texture;
-      (this.down.u.texel!.value as THREE.Vector2).set(1 / s.width, 1 / s.height);
-      this.down.render(renderer, this.mips[i]!);
-    }
-    // upsample: ups[i] = mips[i] + up(ups[i+1])
-    let prevTex = this.mips[MIPS - 1]!.texture;
-    for (let i = MIPS - 2; i >= 0; i--) {
-      const small = i === MIPS - 2 ? this.mips[MIPS - 1]! : this.ups[i + 1]!;
-      this.up.u.src!.value = prevTex;
-      this.up.u.prev!.value = this.mips[i]!.texture;
-      (this.up.u.texel!.value as THREE.Vector2).set(1 / small.width, 1 / small.height);
-      this.up.u.radius!.value = 0.5 + p.bloomRadius;
-      this.up.render(renderer, this.ups[i]!);
-      prevTex = this.ups[i]!.texture;
+    // Bloom pyramid — skipped entirely when the frame asks for neither bloom nor halation (the cel
+    // film does: its paper tops out around 0.85 linear, under its bloom threshold, so the pyramid's
+    // 13 passes could only ever produce black). Plates that want a glow ask for CEL.hot.
+    const bloom = p.bloom > 0 || p.halation > 0;
+    if (bloom) {
+      this.prefilter.u.src!.value = src;
+      (this.prefilter.u.texel!.value as THREE.Vector2).set(1 / W, 1 / H);
+      this.prefilter.u.threshold!.value = p.bloomThreshold;
+      this.prefilter.u.knee!.value = p.bloomKnee;
+      this.prefilter.render(renderer, this.mips[0]!);
+      for (let i = 1; i < MIPS; i++) {
+        const s = this.mips[i - 1]!;
+        this.down.u.src!.value = s.texture;
+        (this.down.u.texel!.value as THREE.Vector2).set(1 / s.width, 1 / s.height);
+        this.down.render(renderer, this.mips[i]!);
+      }
+      // upsample: ups[i] = mips[i] + up(ups[i+1])
+      let prevTex = this.mips[MIPS - 1]!.texture;
+      for (let i = MIPS - 2; i >= 0; i--) {
+        const small = i === MIPS - 2 ? this.mips[MIPS - 1]! : this.ups[i + 1]!;
+        this.up.u.src!.value = prevTex;
+        this.up.u.prev!.value = this.mips[i]!.texture;
+        (this.up.u.texel!.value as THREE.Vector2).set(1 / small.width, 1 / small.height);
+        this.up.u.radius!.value = 0.5 + p.bloomRadius;
+        this.up.render(renderer, this.ups[i]!);
+        prevTex = this.ups[i]!.texture;
+      }
     }
     const f = this.final.u;
     f.src!.value = src;
-    f.bloomTex!.value = this.ups[0]!.texture;
-    f.haloTex!.value = this.ups[3]!.texture;
+    f.bloomTex!.value = bloom ? this.ups[0]!.texture : BLACK_1PX;
+    f.haloTex!.value = bloom ? this.ups[3]!.texture : BLACK_1PX;
     f.hudTex!.value = hud;
     f.exposure!.value = p.exposure;
     f.bloom!.value = p.bloom / 3; // pyramid sums ~MIPS levels; normalize

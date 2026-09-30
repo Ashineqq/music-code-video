@@ -1,7 +1,7 @@
 import { hexToLinear } from './util';
 
 // The whole video lives in a restrained palette: ink, bone, and one signal colour.
-// One rare accent (acid, the shrooms moment) — see docs/TREATMENT.md.
+// One rare accent (acid, the shrooms moment) — see docs/pdoom/TREATMENT.md.
 export const HEX = {
   ink: '#0A0A0B', // background black (slightly warm)
   ink2: '#151517', // raised black (panels, paper-in-the-dark)

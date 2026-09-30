@@ -19,12 +19,14 @@ for var, sub in [("TORCH_HOME", "torch"), ("HF_HOME", "hf"), ("HF_HUB_CACHE", "h
 AUDIO = PROJECT / "audio" / "pdoom.mp3"
 STEMS = ROOT / "stems" / "htdemucs_ft" / "pdoom"
 LYRICS_SRC = PROJECT / "lyrics" / "lyrics.src.js"
-DATA = PROJECT / "data"
+# the data set this pipeline produces: the code-rendered film's folder (data/handdrawn/ is that
+# film's own copy of the song, kept in step by hand if the alignment is ever regenerated)
+DATA = PROJECT / "data" / "pdoom"
 QA = ROOT / "qa"
 WORK = ROOT / "work"          # intermediate results (whisper json, alignments)
 QA.mkdir(exist_ok=True)
 WORK.mkdir(exist_ok=True)
-DATA.mkdir(exist_ok=True)
+DATA.mkdir(parents=True, exist_ok=True)
 
 
 def load_lyrics_src():

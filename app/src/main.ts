@@ -1,9 +1,19 @@
 // Entry: preview player (default) or export mode (?export=1, driven by scripts/render.ts).
+// One app, two films of the same song: a film owns its edit (films/<film>/timeline.ts), its plates
+// (films/<film>/scenes/) and its data (data/<film>/); the engine, the fonts and the song are shared.
 import { Engine, type AdaptiveSampling } from './engine/engine';
 import { PW, PH, SCALE } from './engine/gl';
-import { makeTimeline } from './timeline';
+import { makeTimeline as pdoom } from './films/pdoom/timeline';
+import { makeTimeline as handdrawn } from './films/handdrawn/timeline';
+
+/** The films in this repo, by name. Pick one with ?film=<name> (or VITE_FILM at dev-server start). */
+const FILMS = { pdoom, handdrawn };
 
 const params = new URLSearchParams(location.search);
+const FILM: string = params.get('film') ?? import.meta.env.VITE_FILM ?? 'pdoom';
+const makeTimeline = FILMS[FILM as keyof typeof FILMS];
+if (!makeTimeline) throw new Error(`unknown film '${FILM}' — one of ${Object.keys(FILMS).join(', ')}`);
+document.title = `I'm Upping My P(doom) — ${FILM}`;
 const EXPORT = params.has('export');
 const ONLY = params.get('only'); // comma-separated scene ids to load (faster stills)
 const FROM = params.get('t') ? parseFloat(params.get('t')!) : null;
@@ -13,7 +23,7 @@ const canvas = document.getElementById('c') as HTMLCanvasElement;
 canvas.width = PW;
 canvas.height = PH;
 
-const engine = new Engine(canvas, makeTimeline);
+const engine = new Engine(canvas, makeTimeline, FILM);
 
 declare global {
   interface Window { __pdoom: any }

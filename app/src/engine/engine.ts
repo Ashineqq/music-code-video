@@ -84,7 +84,15 @@ export class Engine {
 
   timeline: TimelineEntry[] = [];
 
-  constructor(public canvas: HTMLCanvasElement, private makeTimeline: (lyrics: Lyrics, audio: AudioData) => TimelineEntry[]) {
+  constructor(
+    public canvas: HTMLCanvasElement,
+    private makeTimeline: (lyrics: Lyrics, audio: AudioData) => TimelineEntry[],
+    /**
+     * The film being rendered. It is the only thing the engine knows about films: it picks that
+     * film's data folder (`data/<film>/`) and its own faces (`fonts/<film>/` on top of `fonts/common/`).
+     */
+    private film: string,
+  ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(PW, PH, false);
@@ -139,7 +147,8 @@ export class Engine {
   }
 
   async init(only?: (e: TimelineEntry) => boolean) {
-    [this.audio, this.lyrics] = await Promise.all([AudioData.load(), Lyrics.load(), loadFonts(), loadStrokeFonts()]) as [AudioData, Lyrics, void, void];
+    const dir = `data/${this.film}`;
+    [this.audio, this.lyrics] = await Promise.all([AudioData.load(dir), Lyrics.load(dir), loadFonts(this.film), loadStrokeFonts()]) as [AudioData, Lyrics, void, void];
     this.timeline = this.makeTimeline(this.lyrics, this.audio);
     this.ctx = { renderer: this.renderer, audio: this.audio, lyrics: this.lyrics, comp: this.comp, W, H, id: '', params: {}, start: 0, end: 0 };
     this.post = new Post();

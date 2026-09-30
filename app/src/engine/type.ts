@@ -9,19 +9,29 @@ import * as opentype from 'opentype.js';
 export const ARCHIVO_WIDTHS = [620, 750, 875, 1000, 1125, 1250] as const;
 export const ARCHIVO_WEIGHTS = [300, 500, 700, 900] as const;
 
-/** `features`: OpenType features switched on for the face (Canvas2D has no font-feature-settings). */
+/**
+ * A face the renderer can load. `file` is relative to `public/fonts/`, and its **first path segment
+ * is the owner**: `common/` is loaded by every film, `<film>/` only by that film (`common` is
+ * therefore a reserved name). See `loadFonts`.
+ *
+ * The split is measured, not stylistic: Archivo and Cormorant are the code-rendered film's type
+ * (its plates are their only user), while the IBM Plex Mono voice and the single-stroke lettering
+ * library are drawn by both films — the engine's own HUD readout needs Plex too.
+ *
+ * `features`: OpenType features switched on for the face (Canvas2D has no font-feature-settings).
+ */
 type FontDef = { family: string; file: string; features?: string };
 const DEFS: FontDef[] = [];
-for (const w of ARCHIVO_WIDTHS) for (const wt of ARCHIVO_WEIGHTS) DEFS.push({ family: `Archivo-${w}-${wt}`, file: `Archivo-w${w}-${wt}.ttf` });
-for (const w of [750, 1000]) for (const wt of [400, 800]) DEFS.push({ family: `ArchivoItalic-${w}-${wt}`, file: `ArchivoItalic-w${w}-${wt}.ttf` });
+for (const w of ARCHIVO_WIDTHS) for (const wt of ARCHIVO_WEIGHTS) DEFS.push({ family: `Archivo-${w}-${wt}`, file: `pdoom/Archivo-w${w}-${wt}.ttf` });
+for (const w of [750, 1000]) for (const wt of [400, 800]) DEFS.push({ family: `ArchivoItalic-${w}-${wt}`, file: `pdoom/ArchivoItalic-w${w}-${wt}.ttf` });
 // Cormorant defaults to old-style figures ("10" reads as "IO" at display sizes): lining figures instead
 for (const wt of [400, 600]) {
-  DEFS.push({ family: `Cormorant-${wt}`, file: `Cormorant-${wt}.ttf`, features: '"lnum" 1' });
-  DEFS.push({ family: `CormorantItalic-${wt}`, file: `CormorantItalic-${wt}.ttf`, features: '"lnum" 1' });
+  DEFS.push({ family: `Cormorant-${wt}`, file: `pdoom/Cormorant-${wt}.ttf`, features: '"lnum" 1' });
+  DEFS.push({ family: `CormorantItalic-${wt}`, file: `pdoom/CormorantItalic-${wt}.ttf`, features: '"lnum" 1' });
 }
 for (const [n, f] of [['300', 'Light'], ['400', 'Regular'], ['500', 'Medium'], ['600', 'SemiBold'], ['700', 'Bold']] as const)
-  DEFS.push({ family: `Plex-${n}`, file: `src/IBMPlexMono-${f}.ttf` });
-DEFS.push({ family: 'PlexItalic-400', file: 'src/IBMPlexMono-Italic.ttf' });
+  DEFS.push({ family: `Plex-${n}`, file: `common/IBMPlexMono-${f}.ttf` });
+DEFS.push({ family: 'PlexItalic-400', file: 'common/IBMPlexMono-Italic.ttf' });
 
 /** Convenience family names. */
 export const F = {
@@ -55,9 +65,14 @@ export const font = (family: string, sizePx: number) => `${sizePx}px "${family}"
 const otCache = new Map<string, opentype.Font>();
 const bufCache = new Map<string, ArrayBuffer>();
 
-export async function loadFonts(): Promise<void> {
+/**
+ * Load the faces a film draws with: every `common/` face plus the ones in `fonts/<film>/`. Both
+ * halves of a face are kept: the FontFace drives Canvas2D, the buffer is what opentype.js outlines
+ * from. A film therefore never fetches another film's type.
+ */
+export async function loadFonts(film: string): Promise<void> {
   await Promise.all(
-    DEFS.map(async (d) => {
+    DEFS.filter((d) => d.file.startsWith('common/') || d.file.startsWith(`${film}/`)).map(async (d) => {
       const buf = await (await fetch(`fonts/${d.file}`)).arrayBuffer();
       bufCache.set(d.family, buf);
       const ff = new FontFace(d.family, buf, d.features ? { featureSettings: d.features } : undefined);

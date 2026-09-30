@@ -1,8 +1,11 @@
 # Generate static font instances for the renderer (canvas + opentype.js need static outlines).
+# These are the code-rendered film's faces, so they live in that film's own folder; the variable
+# sources are kept beside them.
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 from pathlib import Path
-src = Path('../app/public/fonts/src'); out = Path('../app/public/fonts')
+fonts = Path('../app/public/fonts/pdoom')
+src = fonts / 'src'; out = fonts
 jobs = []
 for wd in [62, 75, 87.5, 100, 112.5, 125]:
     for wt in [300, 500, 700, 900]:

@@ -1,4 +1,4 @@
-"""Word-level lyric alignment -> data/lyrics.json
+"""Word-level lyric alignment -> data/pdoom/lyrics.json
 
 Pipeline
   1. ctc_emissions.py  : frame-wise CTC log-probs of the (time-corrected) vocal
@@ -395,7 +395,7 @@ def make_plots(words, alt, L):
 
 
 NOTES = (
-    "Timeline = gapless mp3 decode (same as data/audio.json); Demucs stems shifted -23 ms "
+    "Timeline = gapless mp3 decode (same as data/pdoom/audio.json); Demucs stems shifted -23 ms "
     "(LAME encoder delay). Method: (1) CTC emissions (20 ms frames) of the Demucs vocal stem "
     "from two acoustic models, torchaudio MMS_FA and wav2vec2-large-lv60k-960h, each on the "
     "mono sum and on the left and right channels (choruses are double-tracked L/R), fused as a "

@@ -4,6 +4,7 @@
 // own ' and . glyphs.
 import { type V2, polylineLengths } from './util';
 
+/** The single-stroke library (shared: both films letter with it, `fonts/common/stroke/`). */
 export const STROKE_FONTS = {
   script: 'EMSAllure.svg', // flowing cursive
   hscript: 'HersheyScript1.svg', // classic Hershey script
@@ -33,7 +34,7 @@ const fonts = new Map<StrokeFontName, SFont>();
 export async function loadStrokeFonts() {
   await Promise.all(
     (Object.keys(STROKE_FONTS) as StrokeFontName[]).map(async (k) => {
-      const txt = await (await fetch(`fonts/stroke/${STROKE_FONTS[k]}`)).text();
+      const txt = await (await fetch(`fonts/common/stroke/${STROKE_FONTS[k]}`)).text();
       const f = parseSvgFont(txt);
       addTypographic(f);
       fonts.set(k, f);
