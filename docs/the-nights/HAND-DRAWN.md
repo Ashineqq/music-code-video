@@ -78,6 +78,14 @@ by `tools/import-song.mjs` (line-level times, word times spread inside each line
 band autocorrelation, bar phase from the lyric lines). Word-level precision would need the alignment
 toolchain in `analysis/`, which is a property of the other film's pipeline.
 
+One artifact of that tier, worth knowing before changing anything: a line whose *next* line is far away
+gets its words spread over the whole gap. "My father told me" at 47.24 s is followed by 31 s of
+instrumental, so its four words are held ~2.8 s each (the same happens, mildly, to the lines before the
+12 s and 30 s instrumentals). `nights` absorbs this by staging the line as one long pen stroke over the
+drop; every other plate reveals by `wordProgress`, so it simply follows the data. Tightening it means
+capping the spread in `toLyricsJson` (`tools/import-song.mjs`) and re-running the importer — the plates
+need no change, since they never hard-code a word's time.
+
 ## What the acceptance pass showed
 
 One contact sheet (18 frames: one per plate plus the closing frame) was rendered from the final plates and
