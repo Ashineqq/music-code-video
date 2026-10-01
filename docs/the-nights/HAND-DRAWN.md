@@ -88,25 +88,32 @@ need no change, since they never hard-code a word's time.
 
 ## What the acceptance pass showed
 
-One contact sheet (18 frames: one per plate plus the closing frame) was rendered from the final plates and
-read; `perf` measured five seconds of the busiest stretch. Verdict: the vocabulary holds across all
-seventeen plates — the page furniture, the rules, the word-by-word writing, the flat cel masses and the
-night flood all read as one film, from nine authors.
+The first shoot passed every gate and still failed as a film: one static page per plate, the lyric written
+at 52 px on ruled lines at the bottom — a subtitle bar, which `04-plates.md §5` and `03-animation.md §4.4`
+both forbid, and a composition that changed twice per plate instead of every 1.1–1.5 s. It was re-shot
+with the plate re-planned around two things the gates now enforce:
 
-Measured: **avg 17.9 ms/frame, p50 17.4, p95 30.4, max 40.1** at 1080p (target was under 25 ms on
-average; the export is unaffected by the tail, the live preview may dip under 60 fps on the heaviest
-plates).
+- **every plate declares a `/*!plate` manifest** — `device` (one of the six ways a lyric becomes an
+  object), `staging` + `typePx` + `maxWidth`, `bands[]`, and `movements[]` with a camera per movement;
+- **the lyric is staged in the world, one device per plate**, and no two plates use the same one:
+  riding the ground as a ridge (`open`), stamped on figures' chests (`shadows`), written across a giant
+  palm (`father`/`father2`), riding a heartbeat trace (`older`), **cut out of the night as holes**
+  (`chorus`), stamped into prints (`nights`), letters inside the rain hatch (`thunder`), chart lettering
+  (`shores`), a stamp (`never`), chalked on the road in perspective and carved into a milestone (`outro`).
 
-Known soft spots, left as they are deliberately (each is a one-knob change, none is a defect):
+The acceptance sheet (one frame per plate plus three consecutive bars of the close) reads as one film:
+the palette, the paper and the cel clock hold, and the framing now changes constantly — the 38 s close
+cuts every bar (1.905 s), which is what that long instrumental needed.
 
-- `ember` (123.4–135.3 s) is the film's quietest stretch: a dark page and one ember. That is the design
-  (the fire burns down and hands the page back), but twelve seconds of near-black is a long time for it.
-- `thunder`'s clouds are `night2` on `night` — legible, but the softest contrast in the film.
-- `nights1`'s tear (the drop at ~47.2 s) is subtle at a still; it is a moving edge.
-- In `outro` the dusk hill is a large flat mass and the two figures are small: at 1080p the handover is
-  quiet, which suits the moment but does not read from across a room.
-- The sung lines are lettered at 52–56 px; consistent everywhere, deliberately modest — the page is the
-  film's voice, not a subtitle bar.
+Measured on the modern plates: `perf` was 17.9 ms/frame average before the re-shoot; the re-shoot adds
+bands and camera work rather than geometry, so the cost class is unchanged (the gate counts movements
+and bands; `perf` should be re-measured before a final export).
+
+Soft spots, left as they are (each is one knob, none is a defect):
+
+- `shadows` (9.6–17.2 s) is the plainest plate: a flat wall, two figures, the stamped words small.
+- `shores` (85.8–93.4 s) is the palest: chart lettering in `star` on `cool` at low contrast.
+- `older` (24.8–32.4 s) is sparse in its middle movement (the trace alone before the words ride it).
 
 ## Known trade-off
 

@@ -250,6 +250,89 @@ for (const e of entries) {
   if (hasWords && !/\bwordProgress\b/.test(src)) err(`${e.id}: scenes/${e.file}.ts never uses Lyrics.wordProgress (no per-word sync)`);
 }
 
+// ------------------------------------------------------------------ the plate manifest
+// A plate is the film's only creative unit, and its design (movements, camera, staging, bands) is what
+// decides whether the film moves. So each plate file declares that design in a machine-checked block:
+//
+//   /*!plate { "id": …, "window": [start,end], "device": …, "staging": …, "typePx": …,
+//              "bands": [{ "name": …, "y": [top,bottom] }], "movements": [{ "at": …, "camera": … }] } */
+//
+// The field set is the point: it cannot be filled in without the vocabulary in `references/03-animation.md`
+// (movements, camera-per-cut, the 1.1–1.5 s density) and `references/04-plates.md` (the six devices, one
+// world per plate, bands). The gate then holds the plate to what it declared. A film that has a plate
+// brief is a film built this way, so every one of its plates must declare one. (The two films that predate
+// the brief have none, so they are not checked — no list of names, the brief's presence is the switch.)
+const briefPath = path.join(APP, 'src/films', FILM, 'plans/pages-brief.md');
+const DEVICES = ['written', 'riding', 'typed', 'stamped', 'woven', 'masked'];
+let manifests = 0;
+if (existsSync(briefPath)) {
+  for (const f of sceneFiles) {
+    const src = sceneSrc[f];
+    const block = /\/\*!plate\s*([\s\S]*?)\*\//.exec(src);
+    if (!block) { err(`scenes/${f}: no /*!plate … */ manifest — this film has a plate brief, so every plate declares its movements, camera, device, staging and bands`); continue; }
+    let j;
+    try { j = JSON.parse(block[1]); } catch (e) { err(`scenes/${f}: the manifest is not JSON (${e.message})`); continue; }
+    manifests++;
+    const ids = (Array.isArray(j.id) ? j.id : [j.id]).filter((x) => typeof x === 'string');
+    const mine = entries.filter((e) => e.file === f.replace(/\.ts$/, ''));
+    if (!mine.length) { err(`scenes/${f}: the timeline never names this file`); continue; }
+    for (const e of mine) if (!ids.includes(e.id)) err(`scenes/${f}: the manifest does not list timeline id '${e.id}'`);
+    for (const id of ids) if (!mine.some((e) => e.id === id)) err(`scenes/${f}: the manifest lists '${id}', which the timeline does not give this file`);
+
+    const win = Array.isArray(j.window) && j.window.length === 2 ? j.window.map(Number) : null;
+    if (!win || !win.every(Number.isFinite) || !(win[0] < win[1])) { err(`scenes/${f}: window must be [start, end]`); continue; }
+    for (const e of mine) if (win[0] > e.start + 0.02 || win[1] < e.end - 0.02) err(`scenes/${f}: window [${win}] does not cover timeline entry '${e.id}' (${e.start.toFixed(3)}–${e.end.toFixed(3)})`);
+
+    if (!DEVICES.includes(j.device)) err(`scenes/${f}: device '${j.device}' — one of ${DEVICES.join(' | ')}`);
+    if (!['subject', 'instrument'].includes(j.staging)) err(`scenes/${f}: staging '${j.staging}' — 'subject' or 'instrument'`);
+    const sung = mine.some((e) => lines.some((l) => l.start >= e.start - 0.02 && l.start < e.end - 0.25));
+    const px = Number(j.typePx);
+    const mw = Number(j.maxWidth);
+    if (sung) {
+      if (!Number.isFinite(px) || px <= 0) err(`scenes/${f}: a line is sung here, so typePx must be the size it is drawn at`);
+      else if (j.staging === 'subject') {
+        if (px < 140) err(`scenes/${f}: staged as the frame's subject but typePx ${px} — a sung line that is the subject is >= 140 px (a bottom caption is what this rules out)`);
+        // subject type is big, so a long line has to be fitted: the width cap is half of the rule
+        if (!Number.isFinite(mw) || mw < 600 || mw > 1900) err(`scenes/${f}: staging "subject" needs maxWidth in [600, 1900] (the width the line is fitted into)`);
+      } else if (j.staging === 'instrument' && px > 130) err(`scenes/${f}: staged as an instrument but typePx ${px} is larger than an instrument's`);
+    } else if (px !== 0) err(`scenes/${f}: nothing is sung in this window, so typePx must be 0`);
+
+    const bands = Array.isArray(j.bands) ? j.bands : [];
+    if (bands.length < 2) err(`scenes/${f}: declare at least two bands (everything drawn lives in one)`);
+    for (const b of bands) {
+      if (!b || typeof b.name !== 'string' || !Array.isArray(b.y) || b.y.length !== 2 || !b.y.map(Number).every(Number.isFinite)) { err(`scenes/${f}: bad band ${JSON.stringify(b)} — { "name": …, "y": [top, bottom] }`); continue; }
+      const [y0, y1] = b.y.map(Number);
+      if (!(y0 < y1)) err(`scenes/${f}: band '${b.name}' has y [${y0}, ${y1}]`);
+      else if (y0 < 0 || y1 > 1080) err(`scenes/${f}: band '${b.name}' leaves the frame ([${y0}, ${y1}])`);
+    }
+    for (let i = 0; i < bands.length; i++) for (let k = i + 1; k < bands.length; k++) {
+      const a = bands[i] && Array.isArray(bands[i].y) ? bands[i].y.map(Number) : null;
+      const c = bands[k] && Array.isArray(bands[k].y) ? bands[k].y.map(Number) : null;
+      if (a && c && a[0] < c[1] && c[0] < a[1]) err(`scenes/${f}: bands '${bands[i].name}' and '${bands[k].name}' overlap — they share a y range`);
+    }
+
+    const mv = Array.isArray(j.movements) ? j.movements : [];
+    if (!mv.length) { err(`scenes/${f}: no movements — a plate is a table of them (references/03-animation.md §2/§3)`); continue; }
+    const at = mv.map((x) => Number(x && x.at));
+    if (!at.every(Number.isFinite)) { err(`scenes/${f}: every movement needs a numeric 'at'`); continue; }
+    for (let i = 0; i < mv.length; i++) if (typeof mv[i]?.camera !== 'string' || !mv[i].camera) err(`scenes/${f}: the movement at ${at[i]} declares no camera`);
+    // a module may serve several entries (father1/father2): each entry is its own plate, so the rules
+    // are checked per entry — the movements inside that entry's window, not the union's.
+    for (const e of mine) {
+      const inside = mv.filter((x) => Number(x.at) >= e.start - 0.05 && Number(x.at) < e.end + 0.05);
+      const label = mine.length > 1 ? `${f} @${e.id}` : `scenes/${f}`;
+      if (inside.length < 4) { err(`${label}: ${inside.length} movements in a ${(e.end - e.start).toFixed(1)} s entry — a plate has >= 4 (references/03-animation.md §3)`); continue; }
+      const times = inside.map((x) => Number(x.at));
+      if (Math.abs(times[0] - e.start) > 0.05) err(`${label}: the first movement is at ${times[0]}, the entry starts at ${e.start.toFixed(3)}`);
+      for (let i = 1; i < times.length; i++) if (!(times[i] > times[i - 1])) err(`${label}: movements out of order (${times[i - 1]} → ${times[i]})`);
+      // a composition may not hold: a new one every <= 2.5 s, including from the last movement to the cut
+      const spans = [...times.slice(1).map((x, i) => [x, x - times[i]]), [e.end, e.end - times[times.length - 1]]];
+      for (const [to, gap] of spans) if (gap > 2.5) err(`${label}: no new composition for ${gap.toFixed(2)} s before ${Number(to).toFixed(2)} — the ceiling is 2.5 s (references/03-animation.md §3)`);
+      for (let i = 1; i < inside.length; i++) if (inside[i].camera && inside[i].camera === inside[i - 1].camera) err(`${label}: movements ${i - 1} and ${i} share camera '${inside[i].camera}' — every movement is its own reframe (references/03-animation.md §2)`);
+    }
+  }
+}
+
 // ------------------------------------------------------------------ assets the films read at runtime
 const need = [`audio/${audio.song ?? FILM}.mp3`, `data/${FILM}/lyrics.json`, `data/${FILM}/audio.json`];
 for (const p of need) if (!existsSync(path.join(ROOT, p))) err(`missing asset: ${p}`);
@@ -300,6 +383,7 @@ w(`\n${FILM} · static gate\n`);
 w(`  ${entries.length} plates, ${(entries[entries.length - 1]?.end ?? 0).toFixed(2)} s, ${lines.length} lyric lines` +
   `, ${figStills} shared stills\n`);
 w(`  data/${FILM}/ · ${drift.length ? `differs from data/${other}/ in ${drift.join(', ')}` : `same song data as data/${other}/`}\n`);
+if (existsSync(briefPath)) w(`  plates · ${manifests}/${sceneFiles.length} declare their movements, camera, device, staging and bands\n`);
 w(`  fonts · ${commonFaces.length} shared (fonts/common/) + ${myFaces.length} of its own` +
   `${ownFaces.length - myFaces.length ? `, ${ownFaces.length - myFaces.length} belonging to other films` : ''}\n`);
 if (warnings.length) {
